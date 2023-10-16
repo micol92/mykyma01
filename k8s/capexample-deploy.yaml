@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capexample-app-jwhan02
+  namespace: smu-team02
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: capexample-app-jwhan02
+  template:
+    metadata:
+      labels:
+        app: capexample-app-jwhan02
+        version: v1
+    spec:
+      containers:
+      - name: capexample-app-jwhan02
+        image: jwhan92/learningday2
+        imagePullPolicy: Always
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: 32Mi
+        ports:
+        - containerPort: 4004
+          name: http
+        volumeMounts:
+        - mountPath: /usr/src/app/myvolume
+          name: capexample-volume 
+      volumes:
+      - name: capexample-volume
+        persistentVolumeClaim:
+          claimName: capexample-volumeclaim        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: capexample-service-jwhan02
+  labels:
+    app: capexample-app-jwhan02
+spec:
+  ports:
+  - port: 4004
+    name: http
+    targetPort: 4004
+  selector:
+    app: capexample-app-jwhan02
+---
+apiVersion: connectivityproxy.sap.com/v1
+kind: ServiceMapping
+metadata:
+  name: sm
+spec:
+  type: TCP
+  subaccountId: c0527d4c-e5f2-4ab8-84a8-a1893eab8394
+  serviceId: myservice
+  internalAddress: echoserver.test:80
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: capexample-volumeclaim
+  namespace: smu-team02
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
+
+---
+apiVersion: gateway.kyma-project.io/v1alpha1
+kind: APIRule
+metadata:
+  name: smu-team02-jwhan02-rule
+  namespace: smu-team02
+spec:
+  gateway: kyma-gateway.kyma-system.svc.cluster.local
+  service:
+    name: capexample-service-jwhan02
+    port: 4004
+    host: smu-team02-jwhan02
+  rules:
+    - path: /.*
+      methods: ["GET","POST"]
+      mutators: []
+      accessStrategies:
+        - handler: noop
